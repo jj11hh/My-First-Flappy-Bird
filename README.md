@@ -17,8 +17,6 @@ To install dependencies for Python 2.x:
 
 VIDEO DEMO:
 
-http://www.youtube.com/watch?v=HBbzYKMfx5Y
-   
 DISCLAIMER:
 
 This project is intended for non-commercial educational purposes. 
