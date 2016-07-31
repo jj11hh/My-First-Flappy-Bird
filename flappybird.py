@@ -425,6 +425,7 @@ class ScenePlay(Scene):
         bird = self.game.bird
         bird.dead = False
         bird.state = "play"
+        bird.deg = 0
         bird.flap()
         self.game.floor.pause = False
         self.game.widgets.empty()
