@@ -8,69 +8,11 @@ import pygame
 from random import randint
 import random
 import sys, os
+from resloader import load_all_sfx, load_all_image, IMAGE, SFX, render_number
 
 
 SCALE = 3
 FLOOR = 200
-
-IMAGE = {}
-def load_all_image():
-    dirname, _ = os.path.split(os.path.abspath(sys.argv[0]))
-    dirname = os.path.join(dirname, "res")
-    accept = [".png", ".jpg", ".jpeg"]
-    for pic in os.listdir(dirname):
-        name, ext = os.path.splitext(pic)
-        if ext.lower() in accept:
-            img = pygame.image.load(os.path.join(dirname, pic))
-            img = img.convert_alpha()
-            img = scaleNx(img, SCALE)
-            IMAGE[name] = img
-
-SFX = {}
-def load_all_sfx():
-    dirname, filename = os.path.split(os.path.abspath(sys.argv[0]))
-    dirname = os.path.join(dirname, "res")
-    accept = [".ogg"]
-    for sfx in os.listdir(dirname):
-        name, ext = os.path.splitext(sfx)
-        if ext.lower() in accept:
-            SFX[name] = pygame.mixer.Sound(os.path.join(dirname, sfx))
-
-
-def render_number(num, source = "font_large", shadow = False):
-    num = int(num)
-    num = str(num)
-    length = len(num)
-    renders = []
-    source = IMAGE[source]
-    fontwidth = source.get_width()//10
-    fontheight = source.get_height()
-    for d in num:
-        d = int(d)
-        rect = pygame.Rect(d*fontwidth,0,fontwidth,fontheight)
-        renders.append(source.subsurface(rect))
-
-    surf = pygame.Surface((length*fontwidth, fontheight)).convert_alpha()
-    surf.fill((0,0,0,0))
-    for i, render in enumerate(renders):
-        surf.blit(renders[i], (fontwidth*i, 0))
-    if not shadow:
-        return surf
-    else:
-        shadow = surf.copy()
-        shadow.fill((0,0,0))
-        pygame.surfarray.pixels_alpha(shadow)[:,:] = pygame.surfarray.pixels_alpha(surf)[:,:]
-        width, height = surf.get_size()
-        canva = pygame.Surface((width+SCALE, height+SCALE)).convert_alpha()
-        canva.fill((0, 0, 0, 0))
-        canva.blit(shadow, (SCALE, SCALE))
-        canva.blit(surf, (0,0))
-        return canva
-
-def scaleNx(surface, n):
-    size = surface.get_size()
-    size = size[0]*n, size[1]*n
-    return pygame.transform.scale(surface, size)
 
 class Widget(pygame.sprite.Sprite):
     def __init__(self, image, position):
@@ -289,7 +231,7 @@ class Scoreboard(pygame.sprite.Sprite):
             self._update()
 
     def _update(self):
-        score = render_number(self.score, shadow = True)
+        score = render_number(self.score, "large")
         rect = score.get_rect()
         rect.top = 25*SCALE
         self.image = score
@@ -348,13 +290,12 @@ class FlappyBird(object):
         self.background = random.choice(bgs)
         self.flip = True
     def random_bird_seq(self):
-        bgs = [IMAGE[image] for image in IMAGE.keys() if image[:4] == "bird"]
-        bird_image = random.choice(bgs)
-        width ,height = bird_image.get_size()
+        #bgs = [IMAGE[image] for image in IMAGE.keys() if image[:4] == "bird"]
+        #bird_image = random.choice(bgs)
+        #width ,height = bird_image.get_size()
         bird_image_seq = []
         for i in range(3):
-            bird_image_seq.append(bird_image.subsurface(((0,i*height//3),
-            (width,height//3))))
+            bird_image_seq.append(IMAGE["bird_yellow_" + str(i)])
         return bird_image_seq
 
     def set_scene(self, scene_name):
@@ -447,8 +388,8 @@ class ScenePlay(Scene):
         self.sprites.update()
         if self.timer > 120 and self.timer % 90 == 0:
             height = randint(20*SCALE, 130*SCALE)
-            pipe_top = Pipe(IMAGE['pipe'], self.rect.right, 'top')
-            pipe_bot = Pipe(IMAGE["pipe"], self.rect.right, 'bottom')
+            pipe_top = Pipe(IMAGE['pipe_top_green'], self.rect.right, 'top')
+            pipe_bot = Pipe(IMAGE["pipe_bottom_green"], self.rect.right, 'bottom')
 
             pipe_top.rect.bottom = height
             pipe_bot.rect.top = height+45*SCALE
@@ -477,8 +418,6 @@ class ScenePlay(Scene):
         if self.bird.rect.bottom >= FLOOR*SCALE:
             self.gameover()
 
-
-
     def frozen_all_sprites(self):
         for sprite in self.sprites:
             if sprite.name == "pipe" or sprite.name == "floor":
@@ -504,7 +443,7 @@ class SceneReady(Scene):
         rect = self.screen.get_rect()
         rect.centery = 134*SCALE
         rect.centerx = self.width/2
-        tap_tap = Widget(IMAGE["tap&tap"], rect.center)
+        tap_tap = Widget(IMAGE["tap_tap"], rect.center)
         self.game.widgets.add(tap_tap)
         rect.centery = 80*SCALE
         get_ready = Widget(IMAGE["get_ready"], rect.center)
@@ -534,15 +473,15 @@ class GameOverBoard(pygame.sprite.Sprite):
     def __init__(self, image, pos, score, best):
         pygame.sprite.Sprite.__init__(self)
         self.image = image.copy()
-        image_score = render_number(score, "font_small")
+        image_score = render_number(score, "medium")
         rect = image_score.get_rect()
         rect.right = 105*SCALE
-        rect.top = 51*SCALE
+        rect.top = 18*SCALE
         self.image.blit(image_score, rect)
-        image_score = render_number(best, "font_small")
+        image_score = render_number(best, "medium")
         rect = image_score.get_rect()
         rect.right = 105*SCALE
-        rect.top = 73*SCALE
+        rect.top = 39*SCALE
         self.image.blit(image_score, rect)
 
         self.rect = image.get_rect()
@@ -561,7 +500,7 @@ class SceneGameOver(Scene):
         playButton = GameButton(IMAGE["button_play"], (40*SCALE, 150*SCALE))
         playButton.on_click = lambda:self.quit_to("ready")
         self.game.widgets.add(playButton)
-        self.scoreboard = GameOverBoard(IMAGE["gameover"], (self.width/2,80*SCALE),
+        self.scoreboard = GameOverBoard(IMAGE["score_board"], (self.width/2,80*SCALE),
                 self.game.current_score, self.game.best_score)
         self.game.sprites.add(self.scoreboard)
         SFX["sfx_swooshing"].play()
@@ -591,11 +530,11 @@ def main():
     except:
         pass
 
-    load_all_image()
+    load_all_image(SCALE)
     pygame.display.set_icon(IMAGE["icon"])
     load_all_sfx()
 
-    pygame.time.delay(2000)
+    #pygame.time.delay(2000)
 
     game = FlappyBird()
     game.add_scene(ScenePlay(game))
