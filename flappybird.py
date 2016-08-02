@@ -8,10 +8,27 @@ import pygame
 from random import randint
 import random
 import sys, os
-from resloader import load_all_sfx, load_all_image, IMAGE, SFX, render_number
+from resloader import load_all_sfx, load_all_image, IMAGE, SFX, render_number, scaleNx
+import constants
 
+try:
+    from config import *
+    SCALE = int(SCALE)
+    SCALE = max(SCALE, 1)
+    SCALE = min(SCALE, 10)
+    PLAYERS = int(PLAYERS)
+    PLAYERS = min(PLAYERS, 15)
+    PLAYERS = max(PLAYERS, 1)
+    for i in range(1, PLAYERS+1):
+        key = KEYBINDS.get("{}p".format(i))
+        if not key:
+            KEYBINDS["{}p".format(i)] = pygame.K_SPACE
+    WSRD = bool(WSRD)
+except:
+    SCALE = 3
+    PLAYERS = 1
+    KEYBINDS = {"1p" : pygame.K_SPACE}
 
-SCALE = 3
 FLOOR = 200
 
 class Widget(pygame.sprite.Sprite):
@@ -271,7 +288,7 @@ class Scene(object):
     def __init__(self, game, name):
         self.name = name
         self.game = game
-        self.screen = pygame.display.get_surface()
+        self.screen = game.screen
         self.done = False
         self.next_scene = None
 
@@ -291,11 +308,12 @@ class Scene(object):
         pass
 
 class FlappyBird(object):
-    def __init__(self):
+    def __init__(self, screen):
         self.current_scene = None
         self.fps = 60
         self.clock = pygame.time.Clock()
-        self.screen = pygame.display.get_surface()
+        #self.screen = pygame.display.get_surface()
+        self.screen = screen
 
         self.sprites = pygame.sprite.LayeredUpdates()
         self.widgets = Widgets()
@@ -319,12 +337,10 @@ class FlappyBird(object):
         self.background = random.choice(bgs)
         self.flip = True
     def random_bird_seq(self):
-        #bgs = [IMAGE[image] for image in IMAGE.keys() if image[:4] == "bird"]
-        #bird_image = random.choice(bgs)
-        #width ,height = bird_image.get_size()
+        color = random.choice(["yellow", "blue", "red"])
         bird_image_seq = []
         for i in range(3):
-            bird_image_seq.append(IMAGE["bird_yellow_" + str(i)])
+            bird_image_seq.append(IMAGE["bird_{}_".format(color) + str(i)])
         return bird_image_seq
 
     def set_scene(self, scene_name):
@@ -354,33 +370,37 @@ class FlappyBird(object):
     def quit(self):
         self.done = True
 
-    def mainloop(self):
-        while not self.done:
-            self.clock.tick(self.fps)
-            if self.current_scene.done:
-                self.set_scene(self.current_scene.next_scene)
-            if self.background:
-                self.screen.blit(self.background,(0,0))
+    def update(self):
+        #self.clock.tick(self.fps)
+        if self.current_scene.done:
+            self.set_scene(self.current_scene.next_scene)
+        if self.background:
+            self.screen.blit(self.background,(0,0))
 
 
-            self.eventloop()
-            self.current_scene.update()
-            self.widgets.update()
+        #self.eventloop()
+        self.current_scene.update()
+        self.widgets.update()
 
-            if self.bird.rect.top > 0:
-                rect = self.screen.get_rect()
-                rect.height = FLOOR*SCALE
-                self.bird.rect.center = self.bird.box_collider.clamp(rect).center
+        if self.bird.rect.top > 0:
+            rect = self.screen.get_rect()
+            rect.height = FLOOR*SCALE
+            self.bird.rect.center = self.bird.box_collider.clamp(rect).center
 
-            updates = []
+        updates = []
+
+        if not WSRD:
             updates.extend(self.sprites.draw(self.screen))
             updates.extend(self.widgets.draw(self.screen))
-            pygame.display.update(updates)
+        else:
+            self.sprites.draw(self.screen)
+            self.widgets.draw(self.screen)
 
-            if self.flip:
-                pygame.display.flip()
-                self.flip = False
+        if self.flip:
+            updates = [self.screen.get_rect()]
+            self.flip = False
 
+        return updates
 class ScenePlay(Scene):
     def __init__(self, game):
         Scene.__init__(self, game, "play")
@@ -458,11 +478,15 @@ class ScenePlay(Scene):
         self.frozen_all_sprites()
         self.quit_to("gameover")
 
+#class SceneEntry(Scene):
+#    def __init__(self, game, "entry"):
+#        self.sprites = self.game.sprites
+        
+
 class SceneReady(Scene):
     def __init__(self, game):
         Scene.__init__(self, game, "ready")
         self.sprites = self.game.sprites
-        self.screen = self.game.screen
         self.width, self.height = self.screen.get_size()
     def entry_action(self):
         self.game.random_background()
@@ -594,9 +618,11 @@ class SceneGameOver(Scene):
 
 def main():
     pygame.init()
-    winsize = 144*SCALE, 256*SCALE
+    #winsize = 144*SCALE, 256*SCALE
+    winsize = 144*SCALE*PLAYERS, 256*SCALE
     screen = pygame.display.set_mode(winsize)
-    pygame.display.set_caption("Flappy Bird PC Version 0.7")
+
+    pygame.display.set_caption("My-First-Flappy-Bird Version {}".format(constants.VERSION))
 
     try:
         splash = pygame.image.load(
@@ -619,12 +645,64 @@ def main():
 
     pygame.time.delay(2000)
 
-    game = FlappyBird()
-    game.add_scene(ScenePlay(game))
-    game.add_scene(SceneReady(game))
-    game.add_scene(SceneGameOver(game))
-    game.set_scene("ready")
-    game.mainloop()
+    class Window(object):
+        def __init__(self, mainscreen, rect, keybinds):
+            rect = pygame.Rect(rect)
+            screen = mainscreen.subsurface(rect)
+            game = FlappyBird(screen)
+            game.add_scene(ScenePlay(game))
+            game.add_scene(SceneReady(game))
+            game.add_scene(SceneGameOver(game))
+            game.set_scene("ready")
+            self.game = game
+            self.screen = screen
+            self.rect = rect
+            self.keybinds = keybinds
+        def update(self):
+            updates = self.game.update()
+            if not WSRD:
+                return [update.move(self.rect.topleft) for update in updates]
+
+    clock = pygame.time.Clock()
+
+    windows = [Window(screen, (((i-1)*144*SCALE, 0), (144*SCALE, 256*SCALE)),
+              {KEYBINDS["{}p".format(i)]: pygame.K_SPACE}) for i in range(1, PLAYERS+1)]
+
+    while True:
+        clock.tick(60)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                for win in windows:
+                    if event.key in win.keybinds.keys():
+                        newevent = pygame.event.Event(pygame.KEYDOWN, key = win.keybinds[event.key])
+                        win.game.current_scene.handle_event(newevent)
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                pos = event.pos
+                for win in windows:
+                    if win.rect.collidepoint(pos):
+                        newpos = pos[0] - win.rect.left, pos[1] - win.rect.top
+                        event.pos = newpos
+                        win.game.current_scene.handle_event(event)
+
+        pressed = pygame.mouse.get_pressed()
+        pos = pygame.mouse.get_pos()
+
+        updates = []
+        for win in windows:
+            if win.rect.collidepoint(pos):
+                newpos = pos[0] - win.rect.left, pos[1] - win.rect.top
+                win.game.widgets.handle_event(pressed, newpos)
+            if not WSRD:
+                updates.extend(win.update())
+            else:
+                win.update()
+
+        if WSRD:
+            pygame.display.update()
+        else:
+            pygame.display.update(updates)
 
 
 if __name__ == "__main__":
