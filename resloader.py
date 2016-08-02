@@ -47,6 +47,7 @@ def load_all_image(scale = 1):
     IMAGE["bird_yellow_1"] = make_crop(atlas, (31, 491), (48, 503))
     IMAGE["bird_yellow_2"] = make_crop(atlas, (59, 491), (76, 503))
     IMAGE["icon"] = IMAGE["bird_yellow_1"]
+    IMAGE["newrecord"] = make_crop(atlas, (112, 501), (128, 508))
 
     bigest_numbers={
             "0": ((496, 60), (508, 78)),

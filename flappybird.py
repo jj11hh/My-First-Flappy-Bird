@@ -35,12 +35,19 @@ class Widget(pygame.sprite.Sprite):
         if hasattr(self, "on_mouseleave"):
             self.on_mouseleave()
         pass
-
+    def _on_mouseup(self):
+        if hasattr(self, "on_mouseleave"):
+            self.on_mouseup()
+        pass
+    def _on_mousedown(self):
+        if hasattr(self, "on_mouseleave"):
+            self.on_mousedown()
+        pass
 class GameButton(Widget):
-    def _on_mouseover(self):
+    def _on_mousedown(self):
         self.rect.y += SCALE
         Widget._on_mouseover(self)
-    def _on_mouseleave(self):
+    def _on_mouseup(self):
         self.rect.y -= SCALE
         Widget._on_mouseleave(self)       
 
@@ -48,6 +55,7 @@ class Widgets(pygame.sprite.RenderUpdates):
     def __init__(self):
         pygame.sprite.RenderUpdates.__init__(self)
         self.last_over = set()
+        self.last_buttondown = set()
     def handle_event(self, pressed, pos):
         for btn in self.sprites():
             if btn.rect.collidepoint(pos):
@@ -55,11 +63,21 @@ class Widgets(pygame.sprite.RenderUpdates):
                     self.last_over.add(btn)
                     btn._on_mouseover()
                 if pressed[0]:
-                    btn._on_click()
+                    if not btn in self.last_buttondown:
+                        self.last_buttondown.add(btn)
+                        btn._on_mousedown()
+                else:
+                    if btn in self.last_buttondown:
+                        self.last_buttondown.remove(btn)
+                        btn._on_mouseup()
+                        btn._on_click()
             else:
                 if btn in self.last_over:
                     self.last_over.remove(btn)
                     btn._on_mouseleave()
+                if btn in self.last_buttondown:
+                    self.last_buttondown.remove(btn)
+                    btn._on_mouseup()
     def remove_internal(self, element):
         try:
             self.last_over.remove(element)
@@ -103,6 +121,7 @@ class Bird(pygame.sprite.Sprite):
         self.timer = 0
         self._layer = 1
         self.state = "ready"
+        self._y = self.rect.y
 
     def re_paint(self, image_seq):
             self.image_seq = image_seq
@@ -145,18 +164,28 @@ class Bird(pygame.sprite.Sprite):
             self.rect.y += self.speed
 
         elif self.state == "ready":
-            if self.timer % 3 == 0:
-                if self.timer < 20:
-                    self.rect.centery -= 1*SCALE
-                elif self.timer < 25:
-                    pass
-                elif self.timer < 45:
-                    self.rect.centery +=1*SCALE
-                elif self.timer < 50:
-                    pass
-                else:
-                    self.timer = 0
-            self.timer += 1
+            basetime = 0
+            flyuptime = basetime + 24
+            idletime1 = flyuptime + 2
+            flydowntime = idletime1 + 24
+            idletime2 = flydowntime + 2
+
+            timeout = False
+            if self.timer < flyuptime:
+                self._y -= 1*SCALE / 5.
+            elif self.timer < idletime1:
+                pass
+            elif self.timer < flydowntime:
+                self._y += 1*SCALE / 5.
+            elif self.timer < idletime2:
+                pass
+            else:
+                self.timer = 0
+                timeout = True
+            if not timeout: 
+                self.timer += 1
+            self.rect.y = int(self._y)
+
             if self.image_iter:
                 if self.flaptimer > 6:
                     self.image = next(self.image_iter)
@@ -275,7 +304,7 @@ class FlappyBird(object):
         self.scenes = {}
         self.done = False
         bird_image_seq = self.random_bird_seq()
-        self.bird = Bird((37*SCALE, 150*SCALE), bird_image_seq)
+        self.bird = Bird((37*SCALE, 130*SCALE), bird_image_seq)
         self.sprites.add(self.bird)
 
         self.random_background()
@@ -469,24 +498,56 @@ class SceneReady(Scene):
                 self.quit_to("play")
     def exit_action(self):
         self.game.sprites.remove(self.scoreboard)
-class GameOverBoard(pygame.sprite.Sprite):
-    def __init__(self, image, pos, score, best):
+
+class SlideUpAndDown(pygame.sprite.Sprite):
+    def __init__(self, image, x, init_y, target_y, speed):
         pygame.sprite.Sprite.__init__(self)
-        self.image = image.copy()
+        self.image = image
+        self.name = "slider"
+        self.rect = image.get_rect()
+        self.rect.center = x, init_y
+        self.target_y = target_y
+        self._layer = 3
+        self.speed = speed
+
+    def update(self):
+        distance = self.target_y - self.rect.centery
+        if abs(distance) > self.speed:
+            sign = distance / abs(distance)
+            self.rect.y += sign*self.speed
+
+
+
+class GameOverBoard(SlideUpAndDown):
+    def __init__(self, image, pos, score, best):
+        image = image.copy()
         image_score = render_number(score, "medium")
         rect = image_score.get_rect()
         rect.right = 105*SCALE
         rect.top = 18*SCALE
-        self.image.blit(image_score, rect)
+        image.blit(image_score, rect)
         image_score = render_number(best, "medium")
         rect = image_score.get_rect()
         rect.right = 105*SCALE
         rect.top = 39*SCALE
-        self.image.blit(image_score, rect)
+        image.blit(image_score, rect)
+        if score == best:
+            image.blit(IMAGE["newrecord"], (71*SCALE, 30*SCALE))
 
-        self.rect = image.get_rect()
-        self.rect.center = pos
-        self._layer = 3
+        if score >= 40:
+            medal = IMAGE["medal_platinum"]
+        elif score >= 30:
+            medal = IMAGE["medal_golden"]
+        elif score >= 20:
+            medal = IMAGE["medal_silver"]
+        elif score >= 10:
+            medal = IMAGE["medal_copper"]
+        else:
+            medal = None
+
+        if medal is not None:
+            image.blit(medal, (16*SCALE, 23*SCALE))
+        SlideUpAndDown.__init__(self, image, pos[0], pos[1]+90*SCALE, pos[1], 6*SCALE)
 
 class SceneGameOver(Scene):
     def __init__(self, game):
@@ -495,19 +556,41 @@ class SceneGameOver(Scene):
         self.width, self.height = self.screen.get_size()
     def entry_action(self):
         self.done = False
+        self.clears = set()
         self.game.best_score = max(self.game.best_score, self.game.current_score)
 
-        playButton = GameButton(IMAGE["button_play"], (40*SCALE, 150*SCALE))
-        playButton.on_click = lambda:self.quit_to("ready")
-        self.game.widgets.add(playButton)
-        self.scoreboard = GameOverBoard(IMAGE["score_board"], (self.width/2,80*SCALE),
-                self.game.current_score, self.game.best_score)
-        self.game.sprites.add(self.scoreboard)
-        SFX["sfx_swooshing"].play()
+        self.animation_timer = 0
+
     def update(self):
+        if self.animation_timer == 20:
+            SFX["sfx_swooshing"].play()
+            textgameover = SlideUpAndDown(IMAGE["gameover"], self.width//2, 70*SCALE, 80*SCALE, 3*SCALE)
+            self.game.sprites.add(textgameover)
+            self.clears.add(textgameover)
+        if self.animation_timer == 50:
+            SFX["sfx_swooshing"].play()
+            scoreboard = GameOverBoard(IMAGE["score_board"],
+                (self.width//2,126*SCALE),
+                self.game.current_score, self.game.best_score)
+            self.game.sprites.add(scoreboard)
+            self.clears.add(scoreboard)
+        elif self.animation_timer == 70:
+            playButton = GameButton(IMAGE["button_play"], (40*SCALE, 188*SCALE))
+            def on_click():
+                SFX["sfx_swooshing"].play()
+                self.quit_to("ready")
+            playButton.on_click = on_click;
+
+            self.game.widgets.add(playButton)
+            uselessButton = GameButton(IMAGE["button_share"], (105*SCALE, 188*SCALE))
+            uselessButton._on_click = lambda:SFX["sfx_swooshing"].play()
+            self.game.widgets.add(uselessButton)
+
         self.game.sprites.update()
+        self.animation_timer += 1
     def exit_action(self):
-        self.game.sprites.remove(self.scoreboard)
+        for spr in self.clears:
+            spr.kill()
 
 def main():
     pygame.init()
@@ -534,7 +617,7 @@ def main():
     pygame.display.set_icon(IMAGE["icon"])
     load_all_sfx()
 
-    #pygame.time.delay(2000)
+    pygame.time.delay(2000)
 
     game = FlappyBird()
     game.add_scene(ScenePlay(game))
