@@ -1,4 +1,3 @@
-#!/bin/env python2
 # -*- coding : utf-8 -*-
 
 __author__ = "U.unyxi"
@@ -314,9 +313,6 @@ class Scene(object):
 class FlappyBird(object):
     def __init__(self, screen):
         self.current_scene = None
-        self.fps = 60
-        self.clock = pygame.time.Clock()
-        #self.screen = pygame.display.get_surface()
         self.screen = screen
 
         self.sprites = pygame.sprite.LayeredUpdates()
@@ -375,7 +371,6 @@ class FlappyBird(object):
         self.done = True
 
     def update(self):
-        #self.clock.tick(self.fps)
         if self.current_scene.done:
             self.set_scene(self.current_scene.next_scene)
         if self.background:
@@ -481,11 +476,6 @@ class ScenePlay(Scene):
     def gameover(self):
         self.frozen_all_sprites()
         self.quit_to("gameover")
-
-#class SceneEntry(Scene):
-#    def __init__(self, game, "entry"):
-#        self.sprites = self.game.sprites
-        
 
 class SceneReady(Scene):
     def __init__(self, game):
