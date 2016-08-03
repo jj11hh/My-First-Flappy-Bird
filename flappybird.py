@@ -24,7 +24,11 @@ try:
         if not key:
             KEYBINDS["{}p".format(i)] = pygame.K_SPACE
     WSRD = bool(WSRD)
-except:
+except Exception as e:
+    print("Error in reading config:")
+    print(e)
+    print("using default config.")
+    WSRD = False
     SCALE = 3
     PLAYERS = 1
     KEYBINDS = {"1p" : pygame.K_SPACE}
