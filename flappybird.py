@@ -685,7 +685,7 @@ def main():
                 for win in windows:
                     if win.rect.collidepoint(pos):
                         newpos = pos[0] - win.rect.left, pos[1] - win.rect.top
-			newevent = pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos = newpos)
+                        newevent = pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos = newpos)
                         win.game.current_scene.handle_event(newevent)
 
         pressed = pygame.mouse.get_pressed()
