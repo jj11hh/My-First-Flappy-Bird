@@ -616,6 +616,27 @@ class SceneGameOver(Scene):
         for spr in self.clears:
             spr.kill()
 
+
+
+class Window(object):
+    def __init__(self, mainscreen, rect, keybinds):
+        rect = pygame.Rect(rect)
+        screen = mainscreen.subsurface(rect)
+        game = FlappyBird(screen)
+        game.add_scene(ScenePlay(game))
+        game.add_scene(SceneReady(game))
+        game.add_scene(SceneGameOver(game))
+        game.set_scene("ready")
+        self.game = game
+        self.screen = screen
+        self.rect = rect
+        self.keybinds = keybinds
+    def update(self):
+        updates = self.game.update()
+        if not WSRD:
+            return [update.move(self.rect.topleft) for update in updates]
+
+
 def main():
     pygame.init()
     #winsize = 144*SCALE, 256*SCALE
@@ -644,25 +665,6 @@ def main():
     load_all_sfx()
 
     pygame.time.delay(2000)
-
-    class Window(object):
-        def __init__(self, mainscreen, rect, keybinds):
-            rect = pygame.Rect(rect)
-            screen = mainscreen.subsurface(rect)
-            game = FlappyBird(screen)
-            game.add_scene(ScenePlay(game))
-            game.add_scene(SceneReady(game))
-            game.add_scene(SceneGameOver(game))
-            game.set_scene("ready")
-            self.game = game
-            self.screen = screen
-            self.rect = rect
-            self.keybinds = keybinds
-        def update(self):
-            updates = self.game.update()
-            if not WSRD:
-                return [update.move(self.rect.topleft) for update in updates]
-
     clock = pygame.time.Clock()
 
     windows = [Window(screen, (((i-1)*144*SCALE, 0), (144*SCALE, 256*SCALE)),
@@ -683,8 +685,8 @@ def main():
                 for win in windows:
                     if win.rect.collidepoint(pos):
                         newpos = pos[0] - win.rect.left, pos[1] - win.rect.top
-                        event.pos = newpos
-                        win.game.current_scene.handle_event(event)
+			newevent = pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos = newpos)
+                        win.game.current_scene.handle_event(newevent)
 
         pressed = pygame.mouse.get_pressed()
         pos = pygame.mouse.get_pos()
